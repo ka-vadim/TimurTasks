@@ -19,7 +19,7 @@ class ViewController: UIViewController {
             sectionIdentifier: "Section-1",
             sectionItems: {
                 var itemsIdentifiers = [imageGalleryItemData]()
-                for i in 0...20 {
+                for i in 0...5 {
                     itemsIdentifiers.append(imageGalleryItemData(
                         itemIdentifier: "Image-1-\(i)",
                         itemImage: UIImage(systemName: "person.circle.fill")!)
@@ -40,6 +40,15 @@ class ViewController: UIViewController {
     
     private var imageGalleryCollection: UICollectionView!
     private var imageDataSource: UICollectionViewDiffableDataSource<String, String>!
+    private let selectedImageView = UIImageView()
+    
+    private let modeSwitchView = UIView()
+    private let modeSwitch = UISwitch()
+    private let modeLabel = UILabel()
+    
+    
+    var galleryConstraintToImage: Constraint?
+    var galleryConstraintToSwitch: Constraint?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -56,7 +65,17 @@ class ViewController: UIViewController {
 // MARK: - Setup appearence
 private extension ViewController {
     func setupAppearence() {
+        view.backgroundColor = .white
+        
         imageGalleryCollection.backgroundColor = .quaternarySystemFill
+        
+        selectedImageView.backgroundColor = .quaternarySystemFill
+        selectedImageView.layer.cornerRadius = 20
+        
+        modeSwitch.onTintColor = .link
+        
+        modeLabel.text = "Switch to navigation mode"
+        modeLabel.font = .systemFont(ofSize: 20, weight: .bold)
     }
 }
 
@@ -66,6 +85,28 @@ private extension ViewController {
         imageGalleryCollection.delegate = self
         imageGalleryCollection.dataSource = imageDataSource
         imageGalleryCollection.register(ImageGalleryCell.self, forCellWithReuseIdentifier: ImageGalleryCell.reuseID)
+        imageGalleryCollection.allowsMultipleSelection = false
+        
+        modeSwitch.addTarget(self, action: #selector(switchNavigationMode), for: .valueChanged)
+    }
+    
+    @objc func switchNavigationMode() {
+        if modeSwitch.isOn {
+            modeLabel.text = "Switch to view mode"
+            
+            selectedImageView.isHidden = true
+            selectedImageView.image = nil
+        } else {
+            modeLabel.text = "Switch to navigation mode"
+            selectedImageView.isHidden = false
+        }
+        
+        galleryConstraintToImage?.isActive.toggle()
+        galleryConstraintToSwitch?.isActive.toggle()
+        
+        if let selectedItem = imageGalleryCollection.indexPathsForSelectedItems?.first {
+            imageGalleryCollection.deselectItem(at: selectedItem, animated: false)
+        }
     }
 }
 
@@ -73,6 +114,10 @@ private extension ViewController {
 private extension ViewController {
     func embedViews() {
         view.addSubview(imageGalleryCollection)
+        view.addSubview(selectedImageView)
+        modeSwitchView.addSubview(modeSwitch)
+        modeSwitchView.addSubview(modeLabel)
+        view.addSubview(modeSwitchView)
     }
 }
 
@@ -80,9 +125,36 @@ private extension ViewController {
 private extension ViewController {
     func setupLayout() {
         imageGalleryCollection.snp.makeConstraints {
-            $0.horizontalEdges.equalToSuperview().inset(20)
-            $0.verticalEdges.equalTo(view.safeAreaLayoutGuide.snp.verticalEdges).inset(100)
+            $0.horizontalEdges.equalTo(view.safeAreaLayoutGuide.snp.horizontalEdges).inset(20)
+            $0.bottom.equalTo(view.safeAreaLayoutGuide.snp.bottom)
+            galleryConstraintToImage = $0.top.equalTo(selectedImageView.snp.bottom).offset(40).constraint
         }
+        
+        imageGalleryCollection.snp.prepareConstraints {
+            galleryConstraintToSwitch = $0.top.equalTo(modeSwitchView.snp.bottom).offset(40).constraint
+        }
+        
+        selectedImageView.snp.makeConstraints {
+            $0.centerX.equalToSuperview()
+            $0.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(100)
+            $0.size.equalTo(150)
+        }
+        
+        modeSwitchView.snp.makeConstraints {
+            $0.centerX.equalToSuperview()
+            $0.top.equalTo(view.safeAreaLayoutGuide.snp.top).offset(10)
+        }
+        
+        modeSwitch.snp.makeConstraints {
+            $0.bottom.centerX.equalToSuperview()
+            $0.top.equalTo(modeLabel.snp.bottom).offset(15)
+        }
+        
+        modeLabel.snp.makeConstraints {
+            $0.horizontalEdges.top.equalToSuperview()
+        }
+        
+        galleryConstraintToImage?.activate()
     }
 }
 
@@ -147,7 +219,25 @@ extension ViewController {
 }
 
 // MARK: - Delegate protocol subscription
-extension ViewController: UICollectionViewDelegate {}
+extension ViewController: UICollectionViewDelegate {
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        
+        guard let cellImageView = (collectionView.cellForItem(at: indexPath) as? ImageGalleryCell)?.cellImageView,
+            let cellImage = cellImageView.image,
+            let cellColor = cellImageView.tintColor else {
+                fatalError("Failed to get cell content!")
+        }
+        
+        if modeSwitch.isOn {
+            let detailViewController = DetailChooseViewController()
+            detailViewController.setImageDetails(cellImage, tintColor: cellColor)
+            self.navigationController?.pushViewController(detailViewController, animated: true)
+        } else {
+            selectedImageView.image = cellImage
+            selectedImageView.tintColor = cellImageView.tintColor
+        }
+    }
+}
 
 #Preview {
     ViewController()

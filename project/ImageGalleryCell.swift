@@ -1,12 +1,14 @@
 import UIKit
 import SnapKit
 
-private let coolColors: [UIColor] = [.red, .magenta, .blue, .black, .orange, .purple] // random colors
+private let coolColors: [UIColor] = [.red, .magenta, .blue, .black, .orange, .purple, .brown, .link] // random colors
 
 class ImageGalleryCell: UICollectionViewCell {
     static let reuseID = "ImageGalleryCell"
+    static let standartBackroundColor = UIColor.secondarySystemFill
+    static let choosedBackgroundColor = UIColor.gray
     
-    private let cellImageView = UIImageView()
+    let cellImageView = UIImageView()
     
     func setImage(_ cellImage: UIImage) {
         self.cellImageView.image = cellImage
@@ -16,8 +18,13 @@ class ImageGalleryCell: UICollectionViewCell {
         super.init(frame: frame)
         
         self.addSubview(cellImageView)
-        self.backgroundColor = .secondarySystemFill
+        self.backgroundColor = ImageGalleryCell.standartBackroundColor
         self.tintColor = coolColors[Int.random(in: 0..<coolColors.count)]
+        self.selectedBackgroundView = {
+            let background = UIView()
+            background.backgroundColor = ImageGalleryCell.choosedBackgroundColor
+            return background
+        }()
         
         cellImageView.snp.makeConstraints {
             $0.edges.equalToSuperview().inset(10)
