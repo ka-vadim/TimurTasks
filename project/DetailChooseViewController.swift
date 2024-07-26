@@ -45,7 +45,3 @@ private extension DetailChooseViewController {
         }
     }
 }
-
-#Preview {
-    DetailChooseViewController()
-}

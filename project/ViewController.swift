@@ -16,12 +16,12 @@ class ViewController: UIViewController {
     // MARK: !!!Test data!!!
     private let imageGalleryData = [
         imageGallerySectionData(
-            sectionIdentifier: "Section-1",
+            sectionIdentifier: "Section-0",
             sectionItems: {
                 var itemsIdentifiers = [imageGalleryItemData]()
                 for i in 0...5 {
                     itemsIdentifiers.append(imageGalleryItemData(
-                        itemIdentifier: "Image-1-\(i)",
+                        itemIdentifier: "Image-0-\(i)",
                         itemImage: UIImage(systemName: "person.circle.fill")!)
                     )
                 }
@@ -29,11 +29,11 @@ class ViewController: UIViewController {
             }()
         ),
         imageGallerySectionData(
-            sectionIdentifier: "Section-2",
+            sectionIdentifier: "Section-1",
             sectionItems: [
-                imageGalleryItemData(itemIdentifier: "Item-2-1", itemImage: UIImage(systemName: "character.book.closed.fill")!),
-                imageGalleryItemData(itemIdentifier: "Item-2-2", itemImage: UIImage(systemName: "rectangle.fill")!),
-                imageGalleryItemData(itemIdentifier: "Item-2-3", itemImage: UIImage(systemName: "rectangle.fill")!),
+                imageGalleryItemData(itemIdentifier: "Item-1-1", itemImage: UIImage(systemName: "character.book.closed.fill")!),
+                imageGalleryItemData(itemIdentifier: "Item-1-2", itemImage: UIImage(systemName: "rectangle.fill")!),
+                imageGalleryItemData(itemIdentifier: "Item-1-3", itemImage: UIImage(systemName: "rectangle.fill")!),
             ]
         ),
     ]
@@ -68,6 +68,8 @@ private extension ViewController {
         view.backgroundColor = .white
         
         imageGalleryCollection.backgroundColor = .quaternarySystemFill
+        imageGalleryCollection.layer.borderWidth = 1
+        imageGalleryCollection.layer.borderColor = UIColor.quaternaryLabel.cgColor
         
         selectedImageView.backgroundColor = .quaternarySystemFill
         selectedImageView.layer.cornerRadius = 20
@@ -85,6 +87,7 @@ private extension ViewController {
         imageGalleryCollection.delegate = self
         imageGalleryCollection.dataSource = imageDataSource
         imageGalleryCollection.register(ImageGalleryCell.self, forCellWithReuseIdentifier: ImageGalleryCell.reuseID)
+        imageGalleryCollection.register(AddImageCell.self, forCellWithReuseIdentifier: AddImageCell.reuseID)
         imageGalleryCollection.allowsMultipleSelection = false
         
         modeSwitch.addTarget(self, action: #selector(switchNavigationMode), for: .valueChanged)
@@ -104,19 +107,29 @@ private extension ViewController {
         galleryConstraintToImage?.isActive.toggle()
         galleryConstraintToSwitch?.isActive.toggle()
         
+        UIView.animate(withDuration: 0.2) {
+            self.view.layoutIfNeeded()
+        }
+        
         if let selectedItem = imageGalleryCollection.indexPathsForSelectedItems?.first {
             imageGalleryCollection.deselectItem(at: selectedItem, animated: false)
         }
+    }
+    
+    @objc func openCreateWindow(_ sender: UIButton) {
+        sender.animateChoose()
+        self.navigationController?.pushViewController(AddImageViewController(), animated: true)
     }
 }
 
 // MARK: - Embed views
 private extension ViewController {
     func embedViews() {
-        view.addSubview(imageGalleryCollection)
-        view.addSubview(selectedImageView)
         modeSwitchView.addSubview(modeSwitch)
         modeSwitchView.addSubview(modeLabel)
+        
+        view.addSubview(imageGalleryCollection)
+        view.addSubview(selectedImageView)
         view.addSubview(modeSwitchView)
     }
 }
@@ -187,6 +200,20 @@ extension ViewController {
     func setupImageGalleryCollectionDataSource() {
         imageDataSource = UICollectionViewDiffableDataSource<String, String>(
             collectionView: imageGalleryCollection) { collectionView, indexPath, itemIdentifier in
+                
+                if itemIdentifier.hasSuffix("-Plus") {
+                    guard let addImageCell = collectionView.dequeueReusableCell(
+                        withReuseIdentifier: AddImageCell.reuseID,
+                        for: indexPath
+                    ) as? AddImageCell else {
+                        fatalError("Failed to initialize image gallery cell!")
+                    }
+                    
+                    addImageCell.addImageButton.addTarget(self, action: #selector(self.openCreateWindow), for: .touchUpInside)
+                    
+                    return addImageCell
+                }
+                
                 guard let imageCell = collectionView.dequeueReusableCell(
                     withReuseIdentifier: ImageGalleryCell.reuseID,
                     for: indexPath
@@ -194,27 +221,33 @@ extension ViewController {
                     fatalError("Failed to initialize image gallery cell!")
                 }
                 
-                imageCell.setImage(self.imageGalleryData[indexPath.section].sectionItems[indexPath.item].itemImage)
+                imageCell.cellImageView.image = self.imageGalleryData[indexPath.section].sectionItems[indexPath.item].itemImage
                 
                 return imageCell
             }
         
-        var initializeSnapshot = NSDiffableDataSourceSnapshot<String, String>()
+        updateData()
+    }
+    
+    private func updateData() {
+        var updateSnapshot = NSDiffableDataSourceSnapshot<String, String>()
         
         imageGalleryData.forEach { sectionData in
-            initializeSnapshot.appendSections([sectionData.sectionIdentifier])
-            initializeSnapshot.appendItems({
+            updateSnapshot.appendSections([sectionData.sectionIdentifier])
+            updateSnapshot.appendItems({
                 var itemsIdentifiers = [String]()
                 
                 sectionData.sectionItems.forEach { itemData in
                     itemsIdentifiers.append(itemData.itemIdentifier)
                 }
                 
+                itemsIdentifiers.append("\(sectionData.sectionIdentifier)-Plus")
+                
                 return itemsIdentifiers
             }(), toSection: sectionData.sectionIdentifier)
         }
-    
-        imageDataSource.apply(initializeSnapshot, animatingDifferences: true)
+
+        imageDataSource.apply(updateSnapshot, animatingDifferences: true)
     }
 }
 
@@ -222,9 +255,9 @@ extension ViewController {
 extension ViewController: UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         
-        guard let cellImageView = (collectionView.cellForItem(at: indexPath) as? ImageGalleryCell)?.cellImageView,
-            let cellImage = cellImageView.image,
-            let cellColor = cellImageView.tintColor else {
+        guard let choosedCell = collectionView.cellForItem(at: indexPath) as? ImageGalleryCell,
+              let cellImage = choosedCell.cellImageView.image,
+              let cellColor = choosedCell.cellImageView.tintColor else {
                 fatalError("Failed to get cell content!")
         }
         
@@ -234,8 +267,10 @@ extension ViewController: UICollectionViewDelegate {
             self.navigationController?.pushViewController(detailViewController, animated: true)
         } else {
             selectedImageView.image = cellImage
-            selectedImageView.tintColor = cellImageView.tintColor
+            selectedImageView.tintColor = choosedCell.cellImageView.tintColor
         }
+        
+        choosedCell.animateChoose()
     }
 }
 
